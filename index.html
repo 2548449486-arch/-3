@@ -986,13 +986,13 @@ body::after {
   JAVASCRIPT
 ══════════════════════════════════════════════ -->
 <script>
-'use strict';
-
 /* ─── CONFIG ─── */
 const OR_KEY   = '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';
+const QWEN_KEY = 'sk-cfb5319ee5a24f7b9361608b7615a79b';
 const OR_BASE  = 'https://openrouter.ai/api/v1/chat/completions';
-const VIS_MOD  = 'google/gemini-flash-1.5';   // vision model
-const TXT_MOD  = 'qwen/qwen-2.5-72b-instruct'; // text model
+const QWEN_BASE= 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+const VIS_MOD  = 'google/gemini-flash-1.5';
+const TXT_MOD  = 'qwen/qwen-2.5-72b-instruct';
 
 const STYLES = {
   cyber:   { lbl:'2050赛博都市', en:'Cyberpunk 2050 neon holographic dark atmosphere glowing circuits futuristic' },
@@ -1100,40 +1100,65 @@ function doAd() {
 }
 
 /* ─── AI CALL ─── */
-async function callAI(messages, vision=false) {
-  const isLocal = location.hostname==='127.0.0.1'||location.hostname==='localhost'||location.protocol==='file:';
+async function callAI(messages, vision) {
+  vision = vision || false;
 
-  if (!isLocal) {
-    // Production: backend proxy (keys stay server-side)
-    const r = await fetch('/api/ai', {
+  /* ── OpenRouter 调用 ── */
+  function callOR(model) {
+    return fetch(OR_BASE, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages, useVision: vision })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + OR_KEY,
+        'HTTP-Referer': location.origin,
+        'X-Title': 'Aura AI Lab'
+      },
+      body: JSON.stringify({ model: model, max_tokens: 900, messages: messages })
+    }).then(function(r) {
+      if (!r.ok) return r.text().then(function(e){ throw new Error('OR ' + r.status + ' ' + e); });
+      return r.json();
+    }).then(function(d) {
+      if (!d.choices || !d.choices[0]) throw new Error('OR empty response');
+      return d.choices[0].message.content;
     });
-    if (!r.ok) throw new Error(`Backend ${r.status}`);
-    const d = await r.json();
-    if (d.error) throw new Error(d.error);
-    return d.result;
   }
 
-  // Local dev: direct OpenRouter call
-  const model = vision ? VIS_MOD : TXT_MOD;
-  const r = await fetch(OR_BASE, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OR_KEY}`,
-      'HTTP-Referer': location.origin,
-      'X-Title': 'Aura AI Lab'
-    },
-    body: JSON.stringify({ model, max_tokens: 900, messages })
-  });
-  if (!r.ok) {
-    const err = await r.text();
-    throw new Error(`API ${r.status}: ${err}`);
+  /* ── 千问直连调用 ── */
+  function callQwen() {
+    return fetch(QWEN_BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + QWEN_KEY
+      },
+      body: JSON.stringify({ model: 'qwen-max', max_tokens: 900, messages: messages })
+    }).then(function(r) {
+      if (!r.ok) return r.text().then(function(e){ throw new Error('Qwen ' + r.status + ' ' + e); });
+      return r.json();
+    }).then(function(d) {
+      if (!d.choices || !d.choices[0]) throw new Error('Qwen empty response');
+      return d.choices[0].message.content;
+    });
   }
-  const data = await r.json();
-  return data.choices[0].message.content;
+
+  var primaryModel  = vision ? 'google/gemini-flash-1.5'                    : 'qwen/qwen-2.5-72b-instruct';
+  var fallbackModel = vision ? 'meta-llama/llama-3.2-11b-vision-instruct'   : 'microsoft/phi-4';
+
+  /* 第1次：OpenRouter 主模型 */
+  return callOR(primaryModel).catch(function(e1) {
+    console.warn('主模型失败:', e1.message);
+
+    /* 第2次：千问直连（仅文本） */
+    if (!vision) {
+      return callQwen().catch(function(e2) {
+        console.warn('千问失败:', e2.message);
+        /* 第3次：OpenRouter 备用模型 */
+        return callOR(fallbackModel);
+      });
+    }
+    /* 视觉任务第2次：OpenRouter 备用 */
+    return callOR(fallbackModel);
+  });
 }
 
 /* ─── TYPEWRITER ─── */
