@@ -837,9 +837,9 @@ textarea,input[type=text]{font-family:inherit}
     <div style="text-align:center;margin-bottom:16px">
       <div style="font-size:38px;margin-bottom:10px">⚡</div>
       <div style="font-size:17px;font-weight:700;letter-spacing:.08em;margin-bottom:6px">解锁无限能量</div>
-      <div style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.75;margin-bottom:10px">扫码支付后，截图发给客服即可激活</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.75;margin-bottom:10px">扫码支付 · 付款后系统自动发送激活码</div>
       <div class="paywall-price">¥9.9<span style="font-size:13px;color:rgba(255,255,255,.28);-webkit-text-fill-color:rgba(255,255,255,.28)"> / 月</span></div>
-      <div style="font-size:10px;color:rgba(255,255,255,.28);margin:5px 0 14px;letter-spacing:.1em">≈ 一杯奶茶，每日无限灵感</div>
+      <div style="font-size:10px;color:rgba(255,255,255,.28);margin:5px 0 14px;letter-spacing:.1em">≈ 一杯奶茶，永久无限灵感</div>
     </div>
 
     <div style="display:flex;gap:0;background:rgba(255,255,255,.05);border-radius:12px;padding:3px;margin-bottom:14px">
@@ -857,10 +857,20 @@ textarea,input[type=text]{font-family:inherit}
       <div style="font-size:12px;color:rgba(255,255,255,.5)">收款人：<strong style="color:rgba(255,255,255,.7)">捞汁小海鲜</strong></div>
     </div>
 
-    <div style="font-size:11px;color:rgba(255,255,255,.28);text-align:center;line-height:1.65;padding:10px 14px;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid rgba(255,255,255,.06);margin-top:10px">① 打开对应App → 扫一扫<br>② 截图发给客服激活 ✓</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.28);text-align:center;line-height:1.85;padding:10px 14px;background:rgba(255,255,255,.03);border-radius:10px;border:1px solid rgba(255,255,255,.06);margin-top:10px">① 打开对应 App → 扫一扫付款<br>② 付款成功后获得激活码<br>③ 在下方输入激活码 · 立即解锁 ✓</div>
 
-    <div style="text-align:center;padding:10px 0;font-size:11px;color:rgba(255,255,255,.28);letter-spacing:.15em;margin-top:6px">— 或 —</div>
-    <button class="btn-secondary" onclick="doAd()">📺 看视频广告 · 获得 +3 能量</button>
+    <!-- 激活码输入区 -->
+    <div style="margin-top:14px">
+      <div style="font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-bottom:8px;text-align:center">已付款？输入激活码</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="vip-code-input" type="text" placeholder="输入激活码..." autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+          style="flex:1;padding:12px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(212,175,55,.25);border-radius:14px;color:rgba(255,255,255,.95);font-size:14px;font-family:inherit;letter-spacing:.12em;outline:none;text-align:center"
+          onfocus="this.style.borderColor='rgba(212,175,55,.6)'" onblur="this.style.borderColor='rgba(212,175,55,.25)'"
+          onkeydown="if(event.key==='Enter')activateVIP()">
+        <button onclick="activateVIP()" style="flex-shrink:0;padding:12px 18px;background:linear-gradient(135deg,#3A1E06,#D4AF37,#F0CC50);color:#0A0A0F;font-weight:700;font-size:13px;font-family:inherit;border-radius:14px;border:none;cursor:pointer;letter-spacing:.08em;white-space:nowrap">激活</button>
+      </div>
+      <div id="vip-code-msg" style="font-size:11px;text-align:center;margin-top:8px;min-height:16px;letter-spacing:.05em"></div>
+    </div>
     <div style="text-align:center;margin-top:14px;font-size:12px;color:rgba(255,255,255,.28);cursor:pointer;padding:8px" onclick="closePaywall()">稍后再说</div>
   </div>
 </div>
@@ -882,6 +892,13 @@ var QWEN_MOD  = 'qwen-max';                      // 千问 文本主力
 var QWEN_FAST = 'qwen-plus';                     // 千问 降级备用
 var VIS_MOD   = 'google/gemini-2.5-pro-preview'; // Gemini 2.5 Pro 视觉 (OR)
 var VIS_FAST  = 'google/gemini-flash-1.5';       // Gemini Flash 视觉备用 (OR)
+
+/* ─── VIP 激活码配置（可添加多个，每个永久有效）─── */
+var VIP_CODES = [
+  'AURA9966',   // 主激活码
+  'SUNNY2026',  // 备用激活码
+  'QINGXIAO',   // 晴小专属
+];
 
 var STYLES = {
   cyber:   { lbl:'2050赛博都市', en:'Cyberpunk 2050 neon holographic dark atmosphere glowing circuits futuristic' },
@@ -975,9 +992,59 @@ function toast(msg, ms) {
 }
 
 /* ─── PAYWALL ─── */
-function openPaywall() { document.getElementById('paywall').classList.add('on'); }
-function closePaywall() { document.getElementById('paywall').classList.remove('on'); }
-function doAd() { toast('📺 广告播放完成 +3 能量'); closePaywall(); addE(3); }
+function openPaywall() {
+  document.getElementById('paywall').classList.add('on');
+  // 如果已是 VIP，直接关闭
+  var d = energy();
+  if (d.vip) { closePaywall(); toast('⚡ 你已经是无限能量用户！'); }
+}
+function closePaywall() {
+  document.getElementById('paywall').classList.remove('on');
+  var msg = document.getElementById('vip-code-msg');
+  var inp = document.getElementById('vip-code-input');
+  if (msg) msg.textContent = '';
+  if (inp) inp.value = '';
+}
+
+/* ─── VIP 激活码验证 ─── */
+function activateVIP() {
+  var inp = document.getElementById('vip-code-input');
+  var msg = document.getElementById('vip-code-msg');
+  if (!inp || !msg) return;
+  var code = inp.value.trim().toUpperCase();
+  if (!code) { msg.style.color = 'rgba(255,107,107,.85)'; msg.textContent = '请输入激活码'; return; }
+
+  // 检查已用激活码（防重复）
+  var usedRaw = localStorage.getItem('aura_used_codes') || '[]';
+  var used = JSON.parse(usedRaw);
+
+  // 验证激活码（不区分大小写）
+  var valid = VIP_CODES.some(function(c){ return c.toUpperCase() === code; });
+
+  if (!valid) {
+    msg.style.color = 'rgba(255,107,107,.85)'; msg.textContent = '❌ 激活码无效，请检查后重试';
+    inp.style.borderColor = 'rgba(255,107,107,.5)';
+    setTimeout(function(){ inp.style.borderColor = 'rgba(212,175,55,.25)'; }, 1800);
+    return;
+  }
+  if (used.indexOf(code) > -1) {
+    msg.style.color = 'rgba(255,107,107,.85)'; msg.textContent = '⚠️ 此激活码已被使用';
+    return;
+  }
+
+  // 激活成功
+  used.push(code);
+  localStorage.setItem('aura_used_codes', JSON.stringify(used));
+  var d = energy();
+  d.vip = true; d.n = 999;
+  saveEnergy(d);
+  updateEUI();
+  msg.style.color = 'rgba(61,250,188,.9)'; msg.textContent = '✅ 激活成功！无限能量已解锁';
+  setTimeout(function(){
+    closePaywall();
+    toast('🎉 无限能量已解锁，尽情探索！', 3000);
+  }, 1200);
+}
 
 /* ─── PAYMENT TAB SWITCH ─── */
 function switchPay(type) {
