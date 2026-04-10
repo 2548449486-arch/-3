@@ -883,15 +883,15 @@ textarea,input[type=text]{font-family:inherit}
 ══════════════════════════════════════════════ -->
 <script>
 /* ─── CONFIG ─── */
-var OR_KEY    = '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';
+var OR_KEY    = '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'; // 晴天123
 var QWEN_KEY  = 'sk-cfb5319ee5a24f7b9361608b7615a79b';
 var OR_BASE   = 'https://openrouter.ai/api/v1/chat/completions';
 var QWEN_BASE = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
 /* 文本 → 千问直连 dashscope；图片/视频 → OpenRouter Gemini */
 var QWEN_MOD  = 'qwen-max';                      // 千问 文本主力
 var QWEN_FAST = 'qwen-plus';                     // 千问 降级备用
-var VIS_MOD   = 'google/gemini-2.5-pro-preview'; // Gemini 2.5 Pro 视觉 (OR)
-var VIS_FAST  = 'google/gemini-2.0-flash-001';   // Gemini 2.0 Flash 视觉备用 (OR)
+var VIS_MOD   = 'google/gemini-3.1-pro-preview';  // Gemini 3.1 Pro 视觉主力 (OR)
+var VIS_FAST  = 'google/gemini-2.5-flash-preview:thinking'; // Gemini 2.5 Flash 视觉备用 (OR)
 
 /* ─── VIP 激活码配置（可添加多个，每个永久有效）─── */
 var VIP_CODES = [
@@ -1107,10 +1107,14 @@ function callAI(messages, vision, model) {
   }
 
   if (vision) {
-    /* 图片/视频：Gemini 2.5 Pro → Gemini Flash（均走 OR） */
+    /* 图片/视频：Gemini 3.1 Pro → Gemini 2.5 Flash（均走 OR） */
     var visModel = model || VIS_MOD;
     return callOR(visModel).catch(function(e1) {
-      console.warn('Gemini Pro 失败:', e1.message, '→ 降级 Flash');
+      console.warn('Gemini 3.1 Pro 失败:', e1.message, '→ 降级 Flash');
+      // 401 = OR Key 失效，直接报错给用户
+      if (e1.message && e1.message.indexOf('401') > -1) {
+        throw new Error('OR Key 已失效，请联系开发者更新');
+      }
       return callOR(VIS_FAST);
     });
   } else {
