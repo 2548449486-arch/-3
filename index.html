@@ -890,8 +890,10 @@ var QWEN_BASE = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completi
 /* 文本 → 千问直连 dashscope；图片/视频 → OpenRouter Gemini */
 var QWEN_MOD  = 'qwen-max';                      // 千问 文本主力
 var QWEN_FAST = 'qwen-plus';                     // 千问 降级备用
-var VIS_MOD   = 'google/gemini-3.1-pro-preview';  // Gemini 3.1 Pro 视觉主力 (OR)
-var VIS_FAST  = 'google/gemini-2.5-flash-preview:thinking'; // Gemini 2.5 Flash 视觉备用 (OR)
+var VIS_MOD   = 'google/gemini-2.5-pro-preview';       // Gemini 2.5 Pro 视觉主力（付费）
+var VIS_FAST  = 'google/gemini-2.0-flash-001';          // Gemini 2.0 Flash 视觉备用（付费）
+var VIS_FREE  = 'google/gemini-2.0-flash-exp:free';     // 免费兜底，余额不足也能用
+var VIS_FREE2 = 'meta-llama/llama-3.2-11b-vision-instruct:free'; // 超级兜底
 
 /* ─── VIP 激活码配置（可添加多个，每个永久有效）─── */
 var VIP_CODES = [
@@ -1107,16 +1109,21 @@ function callAI(messages, vision, model) {
   }
 
   if (vision) {
-    /* 图片/视频：Gemini 3.1 Pro → Gemini 2.5 Flash（均走 OR） */
+    /* 视觉：付费主力 → 付费备用 → 免费兜底 → 超级兜底，4层保障 */
     var visModel = model || VIS_MOD;
-    return callOR(visModel).catch(function(e1) {
-      console.warn('Gemini 3.1 Pro 失败:', e1.message, '→ 降级 Flash');
-      // 401 = OR Key 失效，直接报错给用户
-      if (e1.message && e1.message.indexOf('401') > -1) {
-        throw new Error('OR Key 已失效，请联系开发者更新');
-      }
-      return callOR(VIS_FAST);
-    });
+    return callOR(visModel)
+      .catch(function(e1) {
+        console.warn('视觉主力失败('+visModel+'):', e1.message, '→ 付费备用');
+        return callOR(VIS_FAST);
+      })
+      .catch(function(e2) {
+        console.warn('付费备用失败:', e2.message, '→ 免费模型');
+        return callOR(VIS_FREE);
+      })
+      .catch(function(e3) {
+        console.warn('免费主力失败:', e3.message, '→ 超级兜底');
+        return callOR(VIS_FREE2);
+      });
   } else {
     /* 纯文本：qwen-max → qwen-plus（均走 dashscope） */
     return callQwen(QWEN_MOD).catch(function(e1) {
@@ -1341,9 +1348,8 @@ async function doPet() {
     }, parsed ? 900 : 0);
   } catch(err) {
     hideScan();
-    var msg = err && err.message ? err.message.substring(0,40) : '';
-    toast('解读失败 ' + (msg ? '(' + msg + ')' : '请重试 😿'));
     console.error('[doPet]', err);
+    toast('解读失败，网络不稳定请重试 😿');
   }
 }
 
@@ -1603,7 +1609,7 @@ async function doProxy() {
 
   } catch(err){
     clearInterval(ft); flash.classList.remove('open');
-    toast('解密失败，请重试 🔧'); console.error(err);
+    console.error('[doProxy]',err); toast('解密失败，请重试 🔧');
   } finally {
     btn.textContent='✦ 解密 & 生成嘴替'; btn.disabled=false;
   }
