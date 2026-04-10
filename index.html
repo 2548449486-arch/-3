@@ -69,57 +69,118 @@ textarea{font-family:inherit}
 .page.slide-back{transform:translateX(-40px)}
 
 /* BORDERS */
-/* Spinning border animation - no @property needed */
+/* 3D Spinning border — rotating conic sweep on dark border */
 @keyframes spinBorder { to { transform: rotate(360deg); } }
 
-.gb { position:relative; overflow:hidden; }
+/* ── Gold border ── */
+.gb { position:relative; overflow:hidden; border-radius:26px; }
 .gb::before {
   content:'';
-  position:absolute; width:200%; height:200%; top:-50%; left:-50%;
-  background: conic-gradient(#D4AF37, #3A1E06, #A07828, #F0CC50, #3A1E06, #D4AF37);
-  animation: spinBorder 5s linear infinite;
+  position:absolute;
+  top:50%; left:50%;
+  width:141%; height:141%;
+  transform:translate(-50%,-50%) rotate(0deg);
+  background: conic-gradient(
+    from 0deg,
+    rgba(58,30,6,0) 0deg,
+    rgba(120,80,16,.6) 60deg,
+    rgba(212,175,55,1) 90deg,
+    rgba(240,204,80,1) 100deg,
+    rgba(212,175,55,.8) 120deg,
+    rgba(120,80,16,.3) 160deg,
+    rgba(58,30,6,0) 200deg,
+    rgba(58,30,6,0) 340deg,
+    rgba(120,80,16,.4) 355deg,
+    rgba(58,30,6,0) 360deg
+  );
+  animation: spinBorder 4s linear infinite;
   pointer-events:none; z-index:0;
 }
 .gb::after {
   content:'';
   position:absolute; inset:1.5px;
-  border-radius: calc(26px - 1px);
-  background: rgba(18,18,28,.95);
+  border-radius: 24.5px;
   pointer-events:none; z-index:1;
+}
+/* Default dark fill */
+.gb::after { background: rgba(18,18,28,.95); }
+/* Glass cards keep blur */
+.glass.gb::after {
+  background: rgba(18,18,28,.88);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
 }
 .gb > * { position:relative; z-index:2; }
 
-.gb-purple { position:relative; overflow:hidden; }
+/* ── Purple border ── */
+.gb-purple { position:relative; overflow:hidden; border-radius:26px; }
 .gb-purple::before {
   content:'';
-  position:absolute; width:200%; height:200%; top:-50%; left:-50%;
-  background: conic-gradient(#9B6FE8, #1A0A30, #C4B5FD, #5B21B6, #1A0A30, #9B6FE8);
-  animation: spinBorder 5s linear infinite;
+  position:absolute;
+  top:50%; left:50%;
+  width:141%; height:141%;
+  transform:translate(-50%,-50%) rotate(0deg);
+  background: conic-gradient(
+    from 0deg,
+    rgba(26,10,48,0) 0deg,
+    rgba(91,33,182,.6) 60deg,
+    rgba(155,111,232,1) 90deg,
+    rgba(196,181,253,1) 100deg,
+    rgba(155,111,232,.8) 120deg,
+    rgba(91,33,182,.3) 160deg,
+    rgba(26,10,48,0) 200deg,
+    rgba(26,10,48,0) 360deg
+  );
+  animation: spinBorder 4s linear infinite;
   pointer-events:none; z-index:0;
 }
 .gb-purple::after {
   content:'';
   position:absolute; inset:1.5px;
-  border-radius: calc(26px - 1px);
-  background: rgba(18,18,28,.92);
+  border-radius: 24.5px;
+  background: rgba(14,10,24,.9);
   pointer-events:none; z-index:1;
+}
+.glass.gb-purple::after {
+  background: rgba(14,10,24,.85);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
 }
 .gb-purple > * { position:relative; z-index:2; }
 
-.gb-cyan { position:relative; overflow:hidden; }
+/* ── Cyan border ── */
+.gb-cyan { position:relative; overflow:hidden; border-radius:26px; }
 .gb-cyan::before {
   content:'';
-  position:absolute; width:200%; height:200%; top:-50%; left:-50%;
-  background: conic-gradient(#00D4FF, #001520, #80EEFF, #006080, #001520, #00D4FF);
-  animation: spinBorder 5s linear infinite;
+  position:absolute;
+  top:50%; left:50%;
+  width:141%; height:141%;
+  transform:translate(-50%,-50%) rotate(0deg);
+  background: conic-gradient(
+    from 0deg,
+    rgba(0,21,32,0) 0deg,
+    rgba(0,96,128,.6) 60deg,
+    rgba(0,212,255,1) 90deg,
+    rgba(128,238,255,1) 100deg,
+    rgba(0,212,255,.8) 120deg,
+    rgba(0,96,128,.3) 160deg,
+    rgba(0,21,32,0) 200deg,
+    rgba(0,21,32,0) 360deg
+  );
+  animation: spinBorder 4s linear infinite;
   pointer-events:none; z-index:0;
 }
 .gb-cyan::after {
   content:'';
   position:absolute; inset:1.5px;
-  border-radius: calc(26px - 1px);
-  background: rgba(18,18,28,.92);
+  border-radius: 24.5px;
+  background: rgba(10,16,22,.9);
   pointer-events:none; z-index:1;
+}
+.glass.gb-cyan::after {
+  background: rgba(10,16,22,.85);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
 }
 .gb-cyan > * { position:relative; z-index:2; }
 
@@ -129,12 +190,7 @@ textarea{font-family:inherit}
   border-radius:26px;background:rgba(18,18,28,.88);
   border:1px solid rgba(255,255,255,.07);
 }
-/* .glass.gb: spinning border takes over - ::after handles dark bg */
-.glass.gb::after, .glass.gb-purple::after, .glass.gb-cyan::after {
-  background: rgba(18,18,28,.88);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-}
+/* glass.gb handled inline above */
 
 /* NAV */
 .nav{
@@ -741,12 +797,17 @@ textarea{font-family:inherit}
 <div id="toast"></div>
 <script>
 /* ═══ CONFIG ═══ */
-var OR_KEY   = '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';
-var OR_BASE  = 'https://openrouter.ai/api/v1/chat/completions';
-var VIS_MOD  = 'google/gemini-2.5-pro-preview';   // 顶级视觉+推理
-var VIS_FAST = 'google/gemini-flash-1.5';          // 快速视觉备用
-var TXT_MOD  = 'qwen/qwen-2.5-72b-instruct';       // 文本主力(via OpenRouter)
-var TXT_FAST = 'microsoft/phi-4';                   // 文本备用
+var OR_KEY    = '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';
+var QWEN_KEY  = 'sk-cfb5319ee5a24f7b9361608b7615a79b';
+var OR_BASE   = 'https://openrouter.ai/api/v1/chat/completions';
+// dashscope-intl 国际端点（CORS 支持比国内端点好）
+var QWEN_BASE = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
+// 图片/视频 → Google Gemini via OpenRouter
+var VIS_MOD   = 'google/gemini-flash-1.5';
+var VIS_FAST  = 'google/gemini-2.0-flash-exp:free';
+// 纯文本 → 千问 API 直连
+var TXT_MOD   = 'qwen-max';
+var TXT_FAST  = 'qwen-plus';
 
 var STYLES = {
   cyber:  {lbl:'2050赛博都市',en:'Cyberpunk 2050 neon holographic dark futuristic glowing circuits'},
@@ -848,33 +909,67 @@ function hideScan(){document.getElementById('scan').classList.remove('on');}
 /* ═══ AI CALL ═══ */
 function callAI(messages, vision, model) {
   vision = vision || false;
-  var primary = model || (vision ? VIS_MOD : TXT_MOD);
-  var fallback = vision ? VIS_FAST : TXT_FAST;
 
+  // ── OpenRouter (图片/视频 → Google Gemini) ──
   function callOR(m) {
     return fetch(OR_BASE, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type':  'application/json',
         'Authorization': 'Bearer ' + OR_KEY,
-        'HTTP-Referer': location.origin,
-        'X-Title': 'Aura AI Lab'
+        'HTTP-Referer':  location.origin,
+        'X-Title':       'Aura AI Lab'
       },
-      body: JSON.stringify({model: m, max_tokens: 1200, messages: messages})
-    }).then(function(r) {
-      if (!r.ok) return r.text().then(function(e){ throw new Error('OR ' + r.status + ' ' + e.substring(0,100)); });
+      body: JSON.stringify({ model: m, max_tokens: 1200, messages: messages })
+    })
+    .then(function(r) {
+      if (!r.ok) return r.text().then(function(e){ throw new Error('OR-' + r.status + ' ' + e.substring(0,100)); });
       return r.json();
-    }).then(function(d) {
-      if (!d.choices || !d.choices[0]) throw new Error('empty response');
+    })
+    .then(function(d) {
+      if (!d.choices || !d.choices[0]) throw new Error('OR-empty');
       return d.choices[0].message.content;
     });
   }
 
-  // 主模型 → 备用模型（全部走 OpenRouter，无 CORS 问题）
-  return callOR(primary).catch(function(e1) {
-    console.warn('主模型失败(' + primary + '):', e1.message);
-    return callOR(fallback);
-  });
+  // ── 千问 API 直连 (文本专用) ──
+  function callQwen(m) {
+    return fetch(QWEN_BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': 'Bearer ' + QWEN_KEY
+      },
+      body: JSON.stringify({ model: m, max_tokens: 1200, messages: messages })
+    })
+    .then(function(r) {
+      if (!r.ok) return r.text().then(function(e){ throw new Error('Qwen-' + r.status + ' ' + e.substring(0,100)); });
+      return r.json();
+    })
+    .then(function(d) {
+      if (!d.choices || !d.choices[0]) throw new Error('Qwen-empty');
+      return d.choices[0].message.content;
+    });
+  }
+
+  if (vision) {
+    // 图片/视频 → Google Gemini via OpenRouter → 备用 Google 模型
+    var visModel = model || VIS_MOD;
+    return callOR(visModel).catch(function(e1) {
+      console.warn('[Aura Vision] 失败(' + visModel + '):', e1.message, '→ 切备用');
+      return callOR(VIS_FAST);
+    });
+  } else {
+    // 纯文本 → 千问直连 → 千问备用 → 最后 OR 兜底
+    var txtModel = model || TXT_MOD;
+    return callQwen(txtModel).catch(function(e1) {
+      console.warn('[Aura Text] 千问失败(' + txtModel + '):', e1.message, '→ 切千问备用');
+      return callQwen(TXT_FAST).catch(function(e2) {
+        console.warn('[Aura Text] 千问备用失败:', e2.message, '→ OR兜底');
+        return callOR('qwen/qwen-2.5-72b-instruct');
+      });
+    });
+  }
 }
 
 /* ═══ TYPEWRITER ═══ */
