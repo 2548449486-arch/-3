@@ -893,7 +893,7 @@ var QWEN_FAST = 'qwen-plus';                     // 千问 降级备用
 var VIS_MOD   = 'google/gemini-2.5-pro-preview';       // Gemini 2.5 Pro 视觉主力（付费）
 var VIS_FAST  = 'google/gemini-2.0-flash-001';          // Gemini 2.0 Flash 视觉备用（付费）
 var VIS_FREE  = 'google/gemini-2.0-flash-exp:free';     // 免费兜底，余额不足也能用
-var VIS_FREE2 = 'meta-llama/llama-3.2-11b-vision-instruct:free'; // 超级兜底
+var VIS_FREE2 = 'meta-llama/llama-3.2-11b-vision-instruct:free'; // 已弃用，保留备用
 
 /* ─── VIP 激活码配置（可添加多个，每个永久有效）─── */
 var VIP_CODES = [
@@ -1072,35 +1072,15 @@ function switchPay(type) {
 function callAI(messages, vision, model) {
   vision = vision === true;
 
-  /* ── 视觉任务：只走 OpenRouter (Gemini) ── */
-  function callOR(m) {
-    return fetch(OR_BASE, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + OR_KEY,
-        'HTTP-Referer': location.origin,
-        'X-Title': 'Aura AI Lab'
-      },
-      body: JSON.stringify({ model: m, max_tokens: 2000, messages: messages })
-    }).then(function(r) {
-      if (!r.ok) return r.text().then(function(e){ throw new Error('OR '+r.status+':'+e.substring(0,80)); });
-      return r.json();
-    }).then(function(d) {
-      if (!d.choices || !d.choices[0]) throw new Error('OR empty');
-      return d.choices[0].message.content;
-    });
-  }
-
-  /* ── 文本任务：只走千问 dashscope ── */
+  /* ── 千问 DashScope（文本 + 视觉，复用同一个Key）── */
   function callQwen(mod) {
     mod = mod || QWEN_MOD;
     return fetch(QWEN_BASE, {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+QWEN_KEY },
-      body: JSON.stringify({ model: mod, max_tokens: 1200, messages: messages })
+      body: JSON.stringify({ model: mod, max_tokens: 2000, messages: messages })
     }).then(function(r) {
-      if (!r.ok) return r.text().then(function(e){ throw new Error('Qwen '+r.status+':'+e.substring(0,80)); });
+      if (!r.ok) return r.text().then(function(e){ throw new Error('Qwen '+r.status+':'+e.substring(0,100)); });
       return r.json();
     }).then(function(d) {
       if (!d.choices || !d.choices[0]) throw new Error('Qwen empty');
@@ -1108,26 +1088,59 @@ function callAI(messages, vision, model) {
     });
   }
 
+  /* ── OpenRouter（备用，当千问视觉失败时）── */
+  function callOR(m) {
+    return fetch(OR_BASE, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + OR_KEY,
+        'X-Title': 'Aura AI Lab'
+      },
+      body: JSON.stringify({ model: m, max_tokens: 2000, messages: messages })
+    }).then(function(r) {
+      if (!r.ok) return r.text().then(function(e){ throw new Error('OR '+r.status+':'+e.substring(0,100)); });
+      return r.json();
+    }).then(function(d) {
+      if (!d.choices || !d.choices[0]) throw new Error('OR empty');
+      return d.choices[0].message.content;
+    });
+  }
+
   if (vision) {
-    /* 视觉：付费主力 → 付费备用 → 免费兜底 → 超级兜底，4层保障 */
-    var visModel = model || VIS_MOD;
-    return callOR(visModel)
+    /*
+     * 视觉调用链（5层兜底）：
+     * 1. qwen-vl-max     千问视觉旗舰，复用现有Key，无需OR
+     * 2. qwen-vl-plus    千问视觉快速版，同Key
+     * 3. gemini-2.5-pro  OR付费（需OR余额）
+     * 4. gemini-2.0-flash OR付费备用
+     * 5. gemini-2.0-flash:free  OR完全免费兜底
+     */
+    return callQwen('qwen-vl-max')
       .catch(function(e1) {
-        console.warn('视觉主力失败('+visModel+'):', e1.message, '→ 付费备用');
-        return callOR(VIS_FAST);
+        console.warn('[视觉①] qwen-vl-max 失败:', e1.message, '→ qwen-vl-plus');
+        return callQwen('qwen-vl-plus');
       })
       .catch(function(e2) {
-        console.warn('付费备用失败:', e2.message, '→ 免费模型');
-        return callOR(VIS_FREE);
+        console.warn('[视觉②] qwen-vl-plus 失败:', e2.message, '→ OR Gemini 2.5');
+        return callOR(VIS_MOD);
       })
       .catch(function(e3) {
-        console.warn('免费主力失败:', e3.message, '→ 超级兜底');
-        return callOR(VIS_FREE2);
+        console.warn('[视觉③] Gemini 2.5 失败:', e3.message, '→ OR Gemini 2.0');
+        return callOR(VIS_FAST);
+      })
+      .catch(function(e4) {
+        console.warn('[视觉④] Gemini 2.0 失败:', e4.message, '→ OR Free');
+        return callOR(VIS_FREE);
       });
   } else {
-    /* 纯文本：qwen-max → qwen-plus（均走 dashscope） */
+    /*
+     * 文本调用链（2层）：
+     * 1. qwen-max   千问旗舰
+     * 2. qwen-plus  千问降级
+     */
     return callQwen(QWEN_MOD).catch(function(e1) {
-      console.warn('qwen-max 失败:', e1.message, '→ 降级 qwen-plus');
+      console.warn('[文本①] qwen-max 失败:', e1.message, '→ qwen-plus');
       return callQwen(QWEN_FAST);
     });
   }
