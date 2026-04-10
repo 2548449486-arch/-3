@@ -891,7 +891,7 @@ var QWEN_BASE = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completi
 var QWEN_MOD  = 'qwen-max';                      // 千问 文本主力
 var QWEN_FAST = 'qwen-plus';                     // 千问 降级备用
 var VIS_MOD   = 'google/gemini-2.5-pro-preview'; // Gemini 2.5 Pro 视觉 (OR)
-var VIS_FAST  = 'google/gemini-flash-1.5';       // Gemini Flash 视觉备用 (OR)
+var VIS_FAST  = 'google/gemini-2.0-flash-001';   // Gemini 2.0 Flash 视觉备用 (OR)
 
 /* ─── VIP 激活码配置（可添加多个，每个永久有效）─── */
 var VIP_CODES = [
@@ -1080,7 +1080,7 @@ function callAI(messages, vision, model) {
         'HTTP-Referer': location.origin,
         'X-Title': 'Aura AI Lab'
       },
-      body: JSON.stringify({ model: m, max_tokens: 1200, messages: messages })
+      body: JSON.stringify({ model: m, max_tokens: 2000, messages: messages })
     }).then(function(r) {
       if (!r.ok) return r.text().then(function(e){ throw new Error('OR '+r.status+':'+e.substring(0,80)); });
       return r.json();
@@ -1193,6 +1193,31 @@ function parseJSON(raw) {
 }
 
 /* ═══════════════════════════════════════════
+   IMAGE COMPRESSOR — 发送前自动压缩图片
+   iPhone 原图可达 5MB，压缩到 ≤1024px/0.72q
+   减少 API 超时 + 降低流量消耗
+═══════════════════════════════════════════ */
+function compressImage(dataUrl, maxPx, quality) {
+  maxPx   = maxPx   || 1024;
+  quality = quality || 0.72;
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.onload = function() {
+      var w = img.width, h = img.height;
+      if (w <= maxPx && h <= maxPx) { resolve(dataUrl); return; } // 已够小，不压缩
+      var scale = Math.min(maxPx / w, maxPx / h);
+      var cw = Math.round(w * scale), ch = Math.round(h * scale);
+      var cv = document.createElement('canvas');
+      cv.width = cw; cv.height = ch;
+      cv.getContext('2d').drawImage(img, 0, 0, cw, ch);
+      resolve(cv.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = function() { resolve(dataUrl); }; // 压缩失败用原图
+    img.src = dataUrl;
+  });
+}
+
+/* ═══════════════════════════════════════════
    MODULE 1: PET MIND READER
 ═══════════════════════════════════════════ */
 function setPetMode(mode) {
@@ -1217,10 +1242,12 @@ function onPetFile(e) {
   var f = e.target.files[0]; if (!f) return;
   var rd = new FileReader();
   rd.onload = function(ev) {
-    petB64 = ev.target.result;
-    var p = document.getElementById('pet-prev'); p.src = petB64; p.style.display = 'block';
-    document.getElementById('pet-inner').style.display = 'none';
-    document.getElementById('pet-btn').disabled = false;
+    compressImage(ev.target.result, 1024, 0.72).then(function(compressed) {
+      petB64 = compressed;
+      var p = document.getElementById('pet-prev'); p.src = petB64; p.style.display = 'block';
+      document.getElementById('pet-inner').style.display = 'none';
+      document.getElementById('pet-btn').disabled = false;
+    });
   };
   rd.readAsDataURL(f);
 }
@@ -1309,7 +1336,10 @@ async function doPet() {
       lastResults.pet = parsed ? (parsed.monologue||raw) : raw;
     }, parsed ? 900 : 0);
   } catch(err) {
-    hideScan(); toast('解读失败，请重试 😿'); console.error(err);
+    hideScan();
+    var msg = err && err.message ? err.message.substring(0,40) : '';
+    toast('解读失败 ' + (msg ? '(' + msg + ')' : '请重试 😿'));
+    console.error('[doPet]', err);
   }
 }
 
@@ -1343,10 +1373,12 @@ function onUniFile(e) {
   var f = e.target.files[0]; if (!f) return;
   var rd = new FileReader();
   rd.onload = function(ev) {
-    uniB64 = ev.target.result;
-    var p = document.getElementById('uni-prev'); p.src=uniB64; p.style.display='block';
-    document.getElementById('uni-inner').style.display='none';
-    document.getElementById('uni-btn').disabled = !selStyle;
+    compressImage(ev.target.result, 1024, 0.72).then(function(compressed) {
+      uniB64 = compressed;
+      var p = document.getElementById('uni-prev'); p.src=uniB64; p.style.display='block';
+      document.getElementById('uni-inner').style.display='none';
+      document.getElementById('uni-btn').disabled = !selStyle;
+    });
   };
   rd.readAsDataURL(f);
 }
@@ -1443,9 +1475,11 @@ function onProxyFile(e) {
   var f=e.target.files[0]; if(!f) return;
   var rd=new FileReader();
   rd.onload=function(ev){
-    proxyB64=ev.target.result;
-    var p=document.getElementById('proxy-prev'); p.src=proxyB64; p.style.display='block';
-    document.getElementById('proxy-inner').style.display='none';
+    compressImage(ev.target.result, 1024, 0.72).then(function(compressed) {
+      proxyB64=compressed;
+      var p=document.getElementById('proxy-prev'); p.src=proxyB64; p.style.display='block';
+      document.getElementById('proxy-inner').style.display='none';
+    });
   };
   rd.readAsDataURL(f);
 }
@@ -1699,9 +1733,11 @@ function onLoverFile(e) {
   var f = e.target.files[0]; if (!f) return;
   var rd = new FileReader();
   rd.onload = function(ev) {
-    loverB64 = ev.target.result;
-    var p = document.getElementById('lover-prev'); if(p){ p.src = loverB64; p.style.display = 'block'; }
-    var inner = document.getElementById('lover-inner'); if(inner) inner.style.display = 'none';
+    compressImage(ev.target.result, 1024, 0.72).then(function(compressed) {
+      loverB64 = compressed;
+      var p = document.getElementById('lover-prev'); if(p){ p.src = loverB64; p.style.display = 'block'; }
+      var inner = document.getElementById('lover-inner'); if(inner) inner.style.display = 'none';
+    });
   };
   rd.readAsDataURL(f);
 }
